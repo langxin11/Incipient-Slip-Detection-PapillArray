@@ -5,12 +5,12 @@ Created on Tue Jun 28 13:40:38 2022
 
 @author: qiang
 """
-from NN_networks import  SlipDetectGlobalGru as Net
-from NN_torch_dataloader import loader
+from papillarray.networks import SlipDetectGlobalGru as Net
+from papillarray.dataloader import loader
 import torch
 import torch.nn as nn
 import numpy as np
-import utils
+from papillarray import utils
 import argparse
 
 
@@ -88,7 +88,8 @@ def train(args):
         print('---'*20)
     
         log = [epoch]
-        log.append(l_train/count_train)
+        # 小数据集时一个 epoch 可能只有 1 个 batch，若全被 sample_rate 跳过则记 0，避免除零
+        log.append(l_train/count_train if count_train else 0.0)
         loss_csv.update(log, f'{args.save_path}/log.csv')
         if epoch % args.save_freq == 0:
             for idx_model, model in enumerate(models):
@@ -100,25 +101,25 @@ def train(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', default=10)
+    parser.add_argument('--epochs', default=10, type=int)
     parser.add_argument('--mode', default="direct")
-    parser.add_argument('--lr', default=0.001)
+    parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('--use-scheduler', default=False)
-    parser.add_argument('--loss-func', default='ce')
-    parser.add_argument('--optim', default='sgd')
-    parser.add_argument('--stack-samples', default=40)
-    parser.add_argument('--hidden-dim', default=128)
+    parser.add_argument('--loss-func', default='ce', choices=['mse', 'ce', 'bce'])
+    parser.add_argument('--optim', default='sgd', choices=['sgd', 'adam'])
+    parser.add_argument('--stack-samples', default=40, type=int)
+    parser.add_argument('--hidden-dim', default=128, type=int)
     parser.add_argument('--model-size', default='normal')
-    parser.add_argument('--model-num', default=5)
-    parser.add_argument('--sample-rate', default=0.9)
-    parser.add_argument('--momentum', default=0.95)
-    parser.add_argument('--weight-decay', default=1e-2)
-    parser.add_argument('--train-batch-size', default=1024)
-    parser.add_argument('--test-batch-size', default=1024)
-    parser.add_argument('--shuffle', default=1)
-    parser.add_argument('--use-gpu', default=1)
-    parser.add_argument('--eval', default=0)
-    parser.add_argument('--save-freq', default=1)
+    parser.add_argument('--model-num', default=5, type=int)
+    parser.add_argument('--sample-rate', default=0.9, type=float)
+    parser.add_argument('--momentum', default=0.95, type=float)
+    parser.add_argument('--weight-decay', default=1e-2, type=float)
+    parser.add_argument('--train-batch-size', default=1024, type=int)
+    parser.add_argument('--test-batch-size', default=1024, type=int)
+    parser.add_argument('--shuffle', default=1, type=int)
+    parser.add_argument('--use-gpu', default=1, type=int)
+    parser.add_argument('--eval', default=0, type=int)
+    parser.add_argument('--save-freq', default=1, type=int)
     parser.add_argument('--save-path', default=None)
     parser.add_argument('--dataset-path', default=None)
     args = parser.parse_args()

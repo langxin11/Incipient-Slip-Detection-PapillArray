@@ -6,29 +6,37 @@ Created on Wed Sep 21 00:14:18 2022
 @author: qiang
 """
 
-from NN_networks import  SlipDetectGlobalGru as Net
+from papillarray.networks import SlipDetectGlobalGru as Net
 import torch
 import numpy as np
 from copy import copy
-import utils
+from papillarray import utils
 import argparse
-import constants as CONSTANTS
+from papillarray import constants as CONSTANTS
 import matplotlib.pyplot as plt
 import warnings
 import time
 import os
-import DATA_handler as dataset_handler
+from papillarray import data_handler as dataset_handler
 warnings.filterwarnings("ignore")
 
 def run(args):
     print(f'The are/is {args.model_num} model(s) in the ensemble model')
     print(args.stack_samples)
+    # 预训练模型为 8 柱（P1-P8）×滤波 FX/FY = 16 特征；本仓库训练流水线产出的模型为 9 柱 = 18 特征，
+    # 以参考权重的真实输入宽度构造网络并自适应选柱组，两种模型都能评估。
+    ref = torch.load(os.path.join(args.model_load_path, f"ckpt_{args.model_load_num}_model_0.pth"),
+                     weights_only=True)
+    args.input_dim = ref['projector.0.weight'].shape[1]
+    n_features = args.input_dim // args.stack_samples
+    pillar_ids = range(9) if n_features == 18 else range(1, 9)
     models = []
     for i in range(args.model_num):
         m = Net(args).to(args.device)
-        m.load_state_dict(torch.load(os.path.join(args.model_load_path, f"ckpt_{args.model_load_num}_model_{i}.pth")))
+        m.load_state_dict(torch.load(os.path.join(args.model_load_path, f"ckpt_{args.model_load_num}_model_{i}.pth"),
+                                     weights_only=True))
         models.append(m)
-    
+
     feature_start_num = 4
     feature_end_num = 6
     t_total = 0
@@ -43,19 +51,10 @@ def run(args):
     slip_path = args.slip_path  #For instance: "./datasets/all_cases/z=0.9-v=1-XY.csv"
     df, labels = dataset_handler.reshape_sequence_raw(slip_path)
     labels_modified = dataset_handler.one_hot_label_2cats(labels)
-    feature1 = np.array(df[CONSTANTS.pillars[1][feature_start_num:feature_end_num]])
-    feature2 = np.array(df[CONSTANTS.pillars[2][feature_start_num:feature_end_num]])
-    feature3 = np.array(df[CONSTANTS.pillars[3][feature_start_num:feature_end_num]])
-    feature4 = np.array(df[CONSTANTS.pillars[4][feature_start_num:feature_end_num]])
-    feature5 = np.array(df[CONSTANTS.pillars[5][feature_start_num:feature_end_num]])
-    feature6 = np.array(df[CONSTANTS.pillars[6][feature_start_num:feature_end_num]])
-    feature7 = np.array(df[CONSTANTS.pillars[7][feature_start_num:feature_end_num]])
-    feature8 = np.array(df[CONSTANTS.pillars[8][feature_start_num:feature_end_num]])
-    
-    features = np.concatenate((feature1, feature2,
-                               feature3, feature4, feature5,
-                               feature6, feature7, feature8), axis=1)
-    
+    features = np.concatenate(
+        [np.array(df[CONSTANTS.pillars[p][feature_start_num:feature_end_num]]) for p in pillar_ids],
+        axis=1)
+
     features_len = features.shape[0] - (features.shape[0] % args.stack_samples)
     features = features[:features_len]
     labels_modified = labels_modified[:features_len]
@@ -63,7 +62,7 @@ def run(args):
     for i in range(features_len):
         if i % args.stack_samples == 0:
             t.append(df["time"].iloc[i])
-    features = features.reshape(int(features_len/args.stack_samples), int(16 * args.stack_samples))
+    features = features.reshape(int(features_len/args.stack_samples), int(n_features * args.stack_samples))
     labels_modified = labels_modified.reshape(int(features_len/args.stack_samples), int(args.categories * args.stack_samples))[...,-args.categories:]
     global_slip = []
     with torch.no_grad(): 
@@ -110,18 +109,10 @@ def run(args):
     stop_path = args.stop_path #For instance: "./datasets/z=0.9-v=1-XY-stop.csv"
     df, labels = dataset_handler.reshape_sequence_raw(stop_path)
     labels_modified = dataset_handler.one_hot_label_2cats(labels)
-    feature1 = np.array(df[CONSTANTS.pillars[1][feature_start_num:feature_end_num]])
-    feature2 = np.array(df[CONSTANTS.pillars[2][feature_start_num:feature_end_num]])
-    feature3 = np.array(df[CONSTANTS.pillars[3][feature_start_num:feature_end_num]])
-    feature4 = np.array(df[CONSTANTS.pillars[4][feature_start_num:feature_end_num]])
-    feature5 = np.array(df[CONSTANTS.pillars[5][feature_start_num:feature_end_num]])
-    feature6 = np.array(df[CONSTANTS.pillars[6][feature_start_num:feature_end_num]])
-    feature7 = np.array(df[CONSTANTS.pillars[7][feature_start_num:feature_end_num]])
-    feature8 = np.array(df[CONSTANTS.pillars[8][feature_start_num:feature_end_num]])
-    features = np.concatenate((feature1, feature2,
-                               feature3, feature4, feature5,
-                               feature6, feature7, feature8), axis=1)
-    
+    features = np.concatenate(
+        [np.array(df[CONSTANTS.pillars[p][feature_start_num:feature_end_num]]) for p in pillar_ids],
+        axis=1)
+
     features_len = features.shape[0] - (features.shape[0] % args.stack_samples)
     features = features[:features_len]
     labels_modified = labels_modified[:features_len]
@@ -129,7 +120,7 @@ def run(args):
     for i in range(features_len):
         if i % args.stack_samples == 0:
             t.append(df["time"].iloc[i])
-    features = features.reshape(int(features_len/args.stack_samples), int(16 * args.stack_samples))
+    features = features.reshape(int(features_len/args.stack_samples), int(n_features * args.stack_samples))
     labels_modified = labels_modified.reshape(int(features_len/args.stack_samples), int(args.categories * args.stack_samples))[...,-args.categories:]
     global_slip = []
     with torch.no_grad(): 
@@ -184,21 +175,25 @@ def run(args):
     
     plt.subplots_adjust(wspace=v_space, hspace=h_space)
     
-    plt.savefig("pred_slip_stop.jpg", bbox_inches = 'tight')
+    os.makedirs(args.save_path, exist_ok=True)
+    plt.savefig(os.path.join(args.save_path, 'pred_slip_stop.jpg'), bbox_inches='tight')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--use-gpu', default=1)
-    parser.add_argument('--eval', default=1)
-    parser.add_argument('--eval_all', default=1)
-    parser.add_argument('--save-csv', default=0)
-    parser.add_argument('--save-img', default=1)
+    parser.add_argument('--use-gpu', default=1, type=int)
+    parser.add_argument('--eval', default=1, type=int)
+    parser.add_argument('--eval_all', default=1, type=int)
+    parser.add_argument('--save-csv', default=0, type=int)
+    parser.add_argument('--save-img', default=1, type=int)
     parser.add_argument('--save-path', default=None)
-    parser.add_argument('--model-load-path', default='<trained model to your local path>')
-    parser.add_argument('--model-load-num', default='final')
-    parser.add_argument('--slip-path', default='<slip data example to your local path>')
-    parser.add_argument('--stop-path', default='<stop data example to your local path>')
+    parser.add_argument('--model-load-path', default='pre-trained-models/gripping',
+                        help='模型目录（含 reload_info.npy 与 ckpt_*_model_*.pth）')
+    parser.add_argument('--model-load-num', default='final', help='checkpoint 编号（epoch 或 final）')
+    parser.add_argument('--slip-path', default=None, help='slip 数据 CSV，例如 datasets/fullset/case_1/z=0.9-v=1.0-XY.csv')
+    parser.add_argument('--stop-path', default=None, help='stop 数据 CSV，例如 datasets/fullset/case_1/z=0.9-v=1.0-XY-stop.csv')
     args = parser.parse_args()
+    if not args.slip_path or not args.stop_path:
+        parser.error('--slip-path 与 --stop-path 必填（各给一条 CSV 路径，见 README 数据准备一节）')
     args = utils.reload_args(args)
     args.exp_name = 'eval'
     args = utils.args_handler(args)

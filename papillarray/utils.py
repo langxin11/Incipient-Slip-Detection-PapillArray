@@ -15,7 +15,7 @@ import itertools
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import argparse
-from NN_networks import  SlipDetectGlobalGru as Net
+from .networks import SlipDetectGlobalGru as Net
 from copy import copy
 import math
 
@@ -175,8 +175,8 @@ def get_default_eval_args(model_path, number):
     parser.add_argument('--eval_all', default=0)
     parser.add_argument('--save-csv', default=0)
     parser.add_argument('--save-img', default=1)
-    parser.add_argument('--save-path', default=1)
-    args = parser.parse_args()
+    parser.add_argument('--save-path', default=None)
+    args = parser.parse_args([])
     args.model_load_path = model_path
     args.model_number = number
     args = reload_args(args)
@@ -187,9 +187,15 @@ def get_default_eval_args(model_path, number):
 def load_model(args):
     print(f'The are/is {args.model_num} model(s) in the ensemble model')
     models = []
+    # 预训练模型为 8 柱 16 特征（640 输入），本仓库训练流水线产出 9 柱 18 特征（720 输入）；
+    # 以参考权重的真实输入宽度构造网络，两种模型都能加载。
+    ref = torch.load(os.path.join(args.model_load_path, f"ckpt_{args.model_number}_model_0.pth"),
+                     weights_only=True)
+    args.input_dim = ref['projector.0.weight'].shape[1]
     for i in range(args.model_num):
         m = Net(args).to(args.device)
-        m.load_state_dict(torch.load(os.path.join(args.model_load_path, f"ckpt_{args.model_num}_model_{i}.pth")))
+        m.load_state_dict(torch.load(os.path.join(args.model_load_path, f"ckpt_{args.model_number}_model_{i}.pth"),
+                                     weights_only=True))
         models.append(m)
     return models
 
@@ -269,7 +275,7 @@ def args_handler(args):
     if args.eval:
         if not args.save_path:
             args.save_path = os.path.join(
-                args.model_load_path, args.exp_name + "_" + datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
+                'outputs', 'eval', args.exp_name + "_" + datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
             if not os.path.exists(args.save_path):
                 os.makedirs(args.save_path)
             if args.eval_all:
@@ -279,10 +285,10 @@ def args_handler(args):
         print('Exporting the model and log to the folder:', args.save_path)
     else:
         if not args.save_path:
-            proj_root_path = os.path.split(os.path.realpath(__file__))[0]
-            save_root = f'{proj_root_path}/save/trained_models'
+            proj_root_path = os.path.abspath(os.path.join(os.path.realpath(__file__), '..', '..'))
+            save_root = os.path.join(proj_root_path, 'outputs', 'trained_models')
             args.save_path = os.path.join(
-                save_root, args.exp_name + "_" + datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
+                save_root, args.exp_name + "_" + datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
             if not os.path.exists(args.save_path):
                 os.makedirs(args.save_path)
         print('Exporting the model and log to the folder:', args.save_path)

@@ -10,7 +10,7 @@ Generate pillar data for data augmentation
 import argparse
 from glob import glob
 import os
-import constants as CONSTANTS
+from papillarray import constants as CONSTANTS
 import numpy as np
 import warnings
 import pandas as pd
@@ -106,6 +106,6 @@ def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-load-path', default=None)
-    parser.add_argument('--fullset', default=True)
+    parser.add_argument('--fullset', default=1, type=int)
     args = parser.parse_args()
     run(args)

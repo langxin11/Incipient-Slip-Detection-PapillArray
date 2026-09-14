@@ -9,7 +9,7 @@ import pandas as pd
 import random
 import math
 from copy import copy
-import constants as CONSTANTS
+from . import constants as CONSTANTS
 import numpy as np
 import scipy.signal as signal
 
@@ -239,7 +239,7 @@ class pillar_data_sampler():
         
 
 def median_filter_and_velocity(data):
-    df = copy(data)
+    df = data.copy()
     for pillar_idx in range(0,9):
         forcex = df[f'S0_P{pillar_idx}_FX']
         forcey = df[f'S0_P{pillar_idx}_FY']

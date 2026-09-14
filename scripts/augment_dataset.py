@@ -8,10 +8,10 @@ Created on Tue Oct 25 14:35:44 2022
 import argparse
 from glob import glob
 import os
-import constants as CONSTANTS
+from papillarray import constants as CONSTANTS
 import numpy as np
 import warnings
-import DATA_handler as dataset_handler
+from papillarray import data_handler as dataset_handler
 import random
 warnings.filterwarnings("ignore")
 
@@ -164,11 +164,11 @@ def run(args):
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seq-len', default=360)
-    parser.add_argument('--angle-repeats', default=8)
+    parser.add_argument('--seq-len', default=360, type=int)
+    parser.add_argument('--angle-repeats', default=8, type=int)
     parser.add_argument('--data-load-path', default=None)
-    parser.add_argument('--pillars-to-raw', default=1)
-    parser.add_argument('--drop-sample', default=True)
-    parser.add_argument('--fullset', default=True)
+    parser.add_argument('--pillars-to-raw', default=1, type=int)
+    parser.add_argument('--drop-sample', default=1, type=int)
+    parser.add_argument('--fullset', default=1, type=int)
     args = parser.parse_args()
     run(args)

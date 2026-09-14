@@ -11,9 +11,9 @@ import os
 import torch
 import numpy as np
 from copy import copy
-import utils
+from papillarray import utils
 import argparse
-import constants as CONSTANTS
+from papillarray import constants as CONSTANTS
 import matplotlib.pyplot as plt
 import warnings
 import time
@@ -24,6 +24,7 @@ import seaborn
 warnings.filterwarnings("ignore")
 
 def run(pre_args):
+    os.makedirs('outputs', exist_ok=True)
     online_data_path = pre_args.online_data_path
     model_path = pre_args.model_path
     model_num = pre_args.model_num
@@ -127,33 +128,41 @@ def run(pre_args):
             
             TOTLE += 1
             if infos['state'] == 'slip':
-                if r_slip <= 1.0:
+                if r_slip is not None and r_slip <= 1.0:
                     TP += 1
                     correct_path.append(path)
-                    
+
                     if infos['move_type'] == 'trans':
                         t_slips_trans.append(r_slip)
                     if infos['move_type'] == 'rot':
                         t_slips_rot.append(r_slip)
                     if infos['move_type'] == 'trans+rot':
                         t_slips_trans_rot.append(r_slip)
-                    t_slips.append(t_slips)
-                    
+                    t_slips.append(r_slip)
+
                 else:
                     FN += 1
                     print("FN: ", path)
             if infos['state'] == 'stop':
-                if r_slip != None:
+                if r_slip is not None:
                     FP += 1
                     print("FP: ", path)
                 else:
                     TN += 1
-    
-    
-    a = np.load('online_results.npy',allow_pickle=True).item()
-    t_slips_trans=a['t_slips_trans']
-    t_slips_rot=a['t_slips_rot']
-    t_slips_trans_rot=a['t_slips_trans_rot']
+
+
+    # 原实现无条件用本地旧文件覆盖刚算出的结果（画图永远用陈旧数据）；
+    # 改为：有新鲜结果则保存复用，无结果且存在缓存文件才加载。
+    results_path = os.path.join('outputs', 'online_results.npy')
+    if t_slips_trans or t_slips_rot or t_slips_trans_rot:
+        np.save(results_path, {'t_slips_trans': t_slips_trans,
+                               't_slips_rot': t_slips_rot,
+                               't_slips_trans_rot': t_slips_trans_rot})
+    elif os.path.exists(results_path):
+        a = np.load(results_path, allow_pickle=True).item()
+        t_slips_trans = a['t_slips_trans']
+        t_slips_rot = a['t_slips_rot']
+        t_slips_trans_rot = a['t_slips_trans_rot']
     
     
     global_bins = 12
@@ -299,14 +308,16 @@ def run(pre_args):
     pos_new3 = [pos3.x0, pos3.y0, 0.2115, pos3.height]
     ax_box3.set_position(pos_new3)
     
-    plt.savefig('gripping-results.png')
+    plt.savefig(os.path.join('outputs', 'gripping-results.png'))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model-path', default='<trained model to your local path>')
-    parser.add_argument('--model_num', default=16)
-    parser.add_argument('--online-data-path ', default='./gripping-data')
+    parser.add_argument('--model-path', default='pre-trained-models/gripping',
+                        help='模型目录（含 reload_info.npy 与 ckpt_*_model_*.pth）')
+    parser.add_argument('--model-num', default='final',
+                        help='checkpoint 编号（训练时的 epoch 或 final）')
+    parser.add_argument('--online-data-path', default='./gripping-data',
+                        help='在线抓取数据根目录：{path}/{物体}/{trans|rot|trans+rot}/{slip|stop}/f=..-v=..-a=../sensor_data.npy')
     args = parser.parse_args()
-    args = utils.args_handler(args)
     run(args)
