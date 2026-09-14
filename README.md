@@ -92,6 +92,7 @@ scripts/
 ├── evaluate_offline.py       离线评估（画滑移概率曲线）    ← NN_offline_evaluator.py
 └── evaluate_gripping.py      抓取实验批量评估              ← NN_gripping_evaluator.py
 tools/make_synthetic_data.py  合成数据冒烟（新增）
+docs/architecture.md    模型架构说明（网络结构、维度流、16/18 特征差异）
 pre-trained-models/     自带预训练模型（勿往里写东西）
 outputs/                训练与评估产物（gitignore）
 ```
