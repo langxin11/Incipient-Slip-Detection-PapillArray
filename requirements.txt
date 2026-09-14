@@ -1,7 +1,9 @@
-numpy
-pandas
-tdqm
-torch
-torchvision
-scipy
-argparse
+# 推荐用 uv 管理环境：仓库根目录执行 `uv sync` 即可（见 README.md 快速开始）。
+# 本文件仅供 pip 用户参考；CUDA 版 torch 需从 PyTorch 官方源安装（见 README.md「FAQ」），
+# 直接 pip install 本文件得到的是 CPU 版 torch。
+numpy>=2.0
+pandas>=2.2
+scipy>=1.11
+torch>=2.2
+matplotlib>=3.8
+seaborn>=0.13

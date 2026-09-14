@@ -1,0 +1,16 @@
+# 数据与运行产物（脚本会按需自动创建）
+datasets/
+outputs/
+save/
+gripping-data/
+online_results.npy
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# 会话与编辑器
+.zcode/
+.idea/
+.vscode/
